@@ -1,0 +1,62 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+use Data::Dumper;
+use WWW::Pinboard;
+
+my $last_fetch_filename = "last-fetch";
+
+my $token;
+my $api = WWW::Pinboard->new(token => $token);
+
+my $last_fetch = get_last_fetch();
+print "Last recorded fetch was $last_fetch\n";
+
+my $bookmarks = get_bookmarks_since($last_fetch);
+print Dumper $bookmarks;
+
+for my $bookmark (@$bookmarks) {
+    archive_bookmark($bookmark);
+    exit;
+}
+
+#my $last_updated = $api->update->{update_time};
+
+# Lookup the last bookmark we fetched using the log file
+sub get_last_fetch {
+    open(my $last_fetch_fh, '<', $last_fetch_filename);
+    my $last_fetch = <$last_fetch_fh>;
+    return $last_fetch;
+}
+
+# Store the last bookmark fetched in a log file
+sub set_last_fetch {
+    my $last_updated = shift;
+
+    open(my $last_fetch_fh, '>', $last_fetch_filename);
+    print $last_fetch_fh $last_updated;
+}
+
+# Get bookmarks since $date from earliest to latest
+sub get_bookmarks_since {
+    my $from_date = shift;
+
+    my $bookmarks = $api->all(fromdt => $from_date);
+
+    $bookmarks = [ reverse @$bookmarks ];
+
+    return $bookmarks;
+}
+
+sub archive_bookmark {
+    my $bookmark = shift;
+
+    print "Got bookmark: ", substr($bookmark->{description}, 0, 65);
+    print "..." if (length $bookmark->{description} > 65);
+    print "\n";
+
+    set_last_fetch($bookmark->{time});
+
+}
