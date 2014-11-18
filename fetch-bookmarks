@@ -95,7 +95,7 @@ sub archive_as_image {
 
     print "  Archiving as image...\n";
 
-    my $url = $bookmark->{href};
+    my $url = bash_encode($bookmark->{href});
     my $filename = catfile($output_folder, $bookmark->{hash} . ".png");
 
     my $wk_cmd = "wkhtmltoimage";
@@ -117,7 +117,7 @@ sub archive_as_pdf {
 
     print "  Archiving as pdf...\n";
 
-    my $url = $bookmark->{href};
+    my $url = bash_encode($bookmark->{href});
     my $filename = catfile($output_folder, $bookmark->{hash} . ".pdf");
 
     my $wk_cmd = "wkhtmltopdf";
@@ -131,6 +131,13 @@ sub archive_as_pdf {
     my $rc = system($wk_full);
     write_log "wkPDF", "*** Respose code was $rc for $filename ($url)" if $rc;
     print "    [Operation may have failed]\n" if $rc;
+}
+
+# Return a string that is "safe" for bash
+sub bash_encode {
+    my $string = shift;
+
+    return '"' . $string . '"';
 }
 
 # Returns a pretty truncated bookmark description
