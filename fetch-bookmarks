@@ -4,16 +4,20 @@ use warnings;
 use strict;
 
 use Data::Dumper;
+use File::Spec::Functions qw(catfile);
 use WWW::Pinboard;
 
 # Define some output files
 my $log_filename = "log.txt";
 my $last_fetch_filename = "last-fetch";
+my $output_folder = 'output';
 
 my $DEBUG = 1;
 
 my $token;
 my $api = WWW::Pinboard->new(token => $token);
+
+check_output_folder($output_folder);
 
 my $last_fetch = get_last_fetch();
 print "Last recorded fetch was $last_fetch\n";
@@ -24,6 +28,13 @@ print Dumper $bookmarks;
 for my $bookmark (@$bookmarks) {
     archive_bookmark($bookmark);
     exit;
+}
+
+# Check output folder exists, create it if not
+sub check_output_folder {
+    my $output_folder = shift;
+
+    mkdir $output_folder unless (-d $output_folder);
 }
 
 # Lookup the last bookmark we fetched using the log file
@@ -85,7 +96,7 @@ sub archive_as_image {
     print "  Archiving as image...\n";
 
     my $url = $bookmark->{href};
-    my $filename = $bookmark->{hash} . ".png";
+    my $filename = catfile($output_folder, $bookmark->{hash} . ".png");
 
     my $wk_cmd = "wkhtmltoimage";
     my $wk_flags = "--quiet --quality 89"; # quality >89 gives huge filesizes
@@ -106,7 +117,7 @@ sub archive_as_pdf {
     print "  Archiving as pdf...\n";
 
     my $url = $bookmark->{href};
-    my $filename = $bookmark->{hash} . ".pdf";
+    my $filename = catfile($output_folder, $bookmark->{hash} . ".pdf");
 
     my $wk_cmd = "wkhtmltopdf";
     my $wk_flags = "--quiet"; # --quiet
