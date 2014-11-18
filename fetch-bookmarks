@@ -12,7 +12,7 @@ my $log_filename = "log.txt";
 my $last_fetch_filename = "last-fetch";
 my $output_folder = 'output';
 
-my $DEBUG = 1;
+my $DEBUG = 0;
 
 my $token;
 my $api = WWW::Pinboard->new(token => $token);
@@ -27,7 +27,6 @@ print Dumper $bookmarks;
 
 for my $bookmark (@$bookmarks) {
     archive_bookmark($bookmark);
-    exit;
 }
 
 # Check output folder exists, create it if not
@@ -74,7 +73,7 @@ sub archive_bookmark {
     archive_as_pdf($bookmark);
 
     # No need to fetch it again
-    #set_last_fetch($bookmark->{time});
+    set_last_fetch($bookmark->{time});
 
     sleep(1) if $DEBUG;
 }
