@@ -6,6 +6,8 @@ use strict;
 use Data::Dumper;
 use WWW::Pinboard;
 
+# Define some output files
+my $log_filename = "log.txt";
 my $last_fetch_filename = "last-fetch";
 
 my $token;
@@ -21,8 +23,6 @@ for my $bookmark (@$bookmarks) {
     archive_bookmark($bookmark);
     exit;
 }
-
-#my $last_updated = $api->update->{update_time};
 
 # Lookup the last bookmark we fetched using the log file
 sub get_last_fetch {
@@ -50,13 +50,74 @@ sub get_bookmarks_since {
     return $bookmarks;
 }
 
+# Archives a bookmark using the defined methods, then marks it as fetched
 sub archive_bookmark {
     my $bookmark = shift;
 
-    print "Got bookmark: ", substr($bookmark->{description}, 0, 65);
-    print "..." if (length $bookmark->{description} > 65);
-    print "\n";
+    print "Got bookmark: ", shortname($bookmark), "\n";
 
+    archive_as_image($bookmark);
+    archive_as_pdf($bookmark);
+
+    # No need to fetch it again
     set_last_fetch($bookmark->{time});
+}
 
+sub write_log {
+    my $section = shift;
+    my $message = shift;
+
+    open(my $log_fh, '>>', $log_filename);
+
+    print $log_fh "[$section]: $message\n";
+}
+
+# Archive bookmark as an image using wkhtmltoimage
+sub archive_as_image {
+    my $bookmark = shift;
+
+    my $url = $bookmark->{href};
+    my $filename = $bookmark->{hash} . ".png";
+
+    my $wk_cmd = "wkhtmltoimage";
+    my $wk_flags = "--quiet --quality 89"; # >89 gives huge filesizes
+    my $wk_out = ">/dev/null 2>&1";
+
+    print "\nArchiving $url as image\n";
+    my $wk_full = join(' ', $wk_cmd, $wk_flags, $url, $filename, $wk_out);
+    print "Using cmd: $wk_full\n";
+
+    my $rc = system($wk_full);
+
+    write_log "wkImage", "*** Respose code was $rc for $filename ($url)" if $rc;
+}
+
+# Archive bookmark as a PDF using wkhtmltopdf
+sub archive_as_pdf {
+    my $bookmark = shift;
+
+    my $url = $bookmark->{href};
+    my $filename = $bookmark->{hash} . ".pdf";
+
+    my $wk_cmd = "wkhtmltopdf";
+    my $wk_flags = "--quiet"; # --quiet
+    my $wk_out = ">/dev/null 2>&1";
+
+    print "\nArchiving $url as pdf\n";
+    my $wk_full = join(' ', $wk_cmd, $wk_flags, $url, $filename, $wk_out);
+    print "Using cmd: $wk_full\n";
+
+    my $rc = system($wk_full);
+
+    write_log "wkPDF", "*** Respose code was $rc for $filename ($url)" if $rc;
+}
+
+# Returns a pretty truncated bookmark description
+sub shortname {
+    my $bookmark = shift;
+
+    my $shortname = substr($bookmark->{description}, 0, 65);
+    $shortname .= "..." if (length $bookmark->{description} > 65);
+
+    return $shortname;
 }
