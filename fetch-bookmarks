@@ -41,7 +41,7 @@ sub check_output_folder {
 sub get_last_fetch {
     open(my $last_fetch_fh, '<', $last_fetch_filename);
     my $last_fetch = <$last_fetch_fh>;
-    return $last_fetch;
+    return $last_fetch || 0;
 }
 
 # Store the last bookmark fetched in a log file
@@ -108,6 +108,7 @@ sub archive_as_image {
     # Run and check response code
     my $rc = system($wk_full);
     write_log "wkImage", "*** Respose code was $rc for $filename ($url)" if $rc;
+    print "    [Operation may have failed]\n" if $rc;
 }
 
 # Archive bookmark as a PDF using wkhtmltopdf
@@ -129,6 +130,7 @@ sub archive_as_pdf {
     # Run and check response code
     my $rc = system($wk_full);
     write_log "wkPDF", "*** Respose code was $rc for $filename ($url)" if $rc;
+    print "    [Operation may have failed]\n" if $rc;
 }
 
 # Returns a pretty truncated bookmark description
