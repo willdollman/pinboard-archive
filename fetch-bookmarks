@@ -10,6 +10,8 @@ use WWW::Pinboard;
 my $log_filename = "log.txt";
 my $last_fetch_filename = "last-fetch";
 
+my $DEBUG = 1;
+
 my $token;
 my $api = WWW::Pinboard->new(token => $token);
 
@@ -54,18 +56,22 @@ sub get_bookmarks_since {
 sub archive_bookmark {
     my $bookmark = shift;
 
-    print "Got bookmark: ", shortname($bookmark), "\n";
+    print "Fetching \"", shortname($bookmark), "\"\n";
+    write_log("Archiver", Dumper $bookmark);
 
     archive_as_image($bookmark);
     archive_as_pdf($bookmark);
 
     # No need to fetch it again
-    set_last_fetch($bookmark->{time});
+    #set_last_fetch($bookmark->{time});
+
+    sleep(1) if $DEBUG;
 }
 
 sub write_log {
     my $section = shift;
     my $message = shift;
+    chomp $message;
 
     open(my $log_fh, '>>', $log_filename);
 
@@ -76,25 +82,28 @@ sub write_log {
 sub archive_as_image {
     my $bookmark = shift;
 
+    print "  Archiving as image...\n";
+
     my $url = $bookmark->{href};
     my $filename = $bookmark->{hash} . ".png";
 
     my $wk_cmd = "wkhtmltoimage";
-    my $wk_flags = "--quiet --quality 89"; # >89 gives huge filesizes
+    my $wk_flags = "--quiet --quality 89"; # quality >89 gives huge filesizes
     my $wk_out = ">/dev/null 2>&1";
 
-    print "\nArchiving $url as image\n";
     my $wk_full = join(' ', $wk_cmd, $wk_flags, $url, $filename, $wk_out);
-    print "Using cmd: $wk_full\n";
+    write_log "wkImage", "Using: '$wk_full'";
 
+    # Run and check response code
     my $rc = system($wk_full);
-
     write_log "wkImage", "*** Respose code was $rc for $filename ($url)" if $rc;
 }
 
 # Archive bookmark as a PDF using wkhtmltopdf
 sub archive_as_pdf {
     my $bookmark = shift;
+
+    print "  Archiving as pdf...\n";
 
     my $url = $bookmark->{href};
     my $filename = $bookmark->{hash} . ".pdf";
@@ -103,12 +112,11 @@ sub archive_as_pdf {
     my $wk_flags = "--quiet"; # --quiet
     my $wk_out = ">/dev/null 2>&1";
 
-    print "\nArchiving $url as pdf\n";
     my $wk_full = join(' ', $wk_cmd, $wk_flags, $url, $filename, $wk_out);
-    print "Using cmd: $wk_full\n";
+    write_log "wkPDF", "Using: '$wk_full'";
 
+    # Run and check response code
     my $rc = system($wk_full);
-
     write_log "wkPDF", "*** Respose code was $rc for $filename ($url)" if $rc;
 }
 
