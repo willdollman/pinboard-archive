@@ -9,10 +9,11 @@ use WWW::Pinboard;
 
 # Define some output files
 my $log_filename = "log.txt";
+my $error_filename = "errorlog.txt";
 my $last_fetch_filename = "last-fetch";
 my $output_folder = 'output';
 
-my $DEBUG = 0;
+my $DEBUG = 1;
 
 my $token;
 my $api = WWW::Pinboard->new(token => $token);
@@ -23,7 +24,7 @@ my $last_fetch = get_last_fetch();
 print "Last recorded fetch was $last_fetch\n";
 
 my $bookmarks = get_bookmarks_since($last_fetch);
-print Dumper $bookmarks;
+print Dumper $bookmarks if $DEBUG;
 
 for my $bookmark (@$bookmarks) {
     archive_bookmark($bookmark);
@@ -67,7 +68,7 @@ sub archive_bookmark {
     my $bookmark = shift;
 
     print "Fetching \"", shortname($bookmark), "\"\n";
-    write_log("Archiver", Dumper $bookmark);
+    std_log("Archiver", Dumper $bookmark) if $DEBUG;
 
     archive_as_image($bookmark);
     archive_as_pdf($bookmark);
@@ -75,17 +76,7 @@ sub archive_bookmark {
     # No need to fetch it again
     set_last_fetch($bookmark->{time});
 
-    sleep(1) if $DEBUG;
-}
-
-sub write_log {
-    my $section = shift;
-    my $message = shift;
-    chomp $message;
-
-    open(my $log_fh, '>>', $log_filename);
-
-    print $log_fh "[$section]: $message\n";
+    sleep(1);
 }
 
 # Archive bookmark as an image using wkhtmltoimage
@@ -102,12 +93,33 @@ sub archive_as_image {
     my $wk_out = ">/dev/null 2>&1";
 
     my $wk_full = join(' ', $wk_cmd, $wk_flags, $url, $filename, $wk_out);
-    write_log "wkImage", "Using: '$wk_full'";
+    std_log("wkImage", "Using: '$wk_full'");
 
     # Run and check response code
-    my $rc = system($wk_full);
-    write_log "wkImage", "*** Respose code was $rc for $filename ($url)" if $rc;
-    print "    [Operation may have failed]\n" if $rc;
+    my $rc;
+
+    # The script will continue, but you'll have issues with zombie wkhtmls
+    # This will catch wkhtmls that take longer than 2 minutes, but they'll stick around as zombies
+    eval {
+        local $SIG{ALRM} = sub { die "alarm\n" };
+        alarm 240; # four minute timeout
+
+        $rc = system($wk_full);
+
+        alarm 0;
+    };
+    if ($@) {
+        # wkhtml timed out, log it
+        die unless $@ eq "alarm\n";
+        print "    [Fetch timed out]\n";
+        error_log("wkImage", "*** Fetch timed out for $filename");
+    }
+    else {
+        # wkhtml didn't time out, check return code
+        std_log("wkImage", "Response code was $rc");
+        error_log("wkImage", "*** Respose code was $rc for $filename ($url)") if $rc;
+        print "    [Operation may have failed ($rc)]\n" if $rc;
+    }
 }
 
 # Archive bookmark as a PDF using wkhtmltopdf
@@ -124,12 +136,13 @@ sub archive_as_pdf {
     my $wk_out = ">/dev/null 2>&1";
 
     my $wk_full = join(' ', $wk_cmd, $wk_flags, $url, $filename, $wk_out);
-    write_log "wkPDF", "Using: '$wk_full'";
+    std_log("wkPDF", "Using: '$wk_full'");
 
     # Run and check response code
     my $rc = system($wk_full);
-    write_log "wkPDF", "*** Respose code was $rc for $filename ($url)" if $rc;
-    print "    [Operation may have failed]\n" if $rc;
+    std_log("wkImage", "Response code was $rc");
+    error_log("wkPDF", "*** Respose code was $rc for $filename ($url)") if $rc;
+    print "    [Operation may have failed ($rc)]\n" if $rc;
 }
 
 # Return a string that is "safe" for bash
@@ -147,4 +160,42 @@ sub shortname {
     $shortname .= "..." if (length $bookmark->{description} > 65);
 
     return $shortname;
+}
+
+sub std_log {
+    my $section = shift;
+    my $message = shift;
+
+    my $type = "log";
+
+    write_log($type, $section, $message);
+}
+
+sub error_log {
+    my $section = shift;
+    my $message = shift;
+
+    my $type = "error";
+
+    write_log($type, $section, $message);
+}
+
+sub write_log {
+    my $type = shift;
+    my $section = shift;
+    my $message = shift;
+    chomp $message;
+
+    my $log_fh;
+    if ($type eq "log") {
+        open($log_fh, '>>', $log_filename);
+    }
+    elsif ($type eq "error") {
+        open($log_fh, '>>', $error_filename);
+    }
+    else {
+        warn "Unknown log type";
+    }
+
+    print $log_fh "[$section]: $message\n";
 }
