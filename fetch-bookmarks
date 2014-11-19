@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+# Requires the urw-fonts package (or perhaps better) to render fonts nicely
+
 use warnings;
 use strict;
 
@@ -8,26 +10,39 @@ use File::Spec::Functions qw(catfile);
 use WWW::Pinboard;
 
 # Define some output files
-my $log_filename = "log.txt";
-my $error_filename = "errorlog.txt";
+my $log_filename    = "log.txt";
+my $error_filename  = "errorlog.txt";
+my $retry_filename  = "retry.txt";
+my $failed_filename = "failed.txt";
+
 my $last_fetch_filename = "last-fetch";
 my $output_folder = 'output';
 
-my $DEBUG = 1;
+my $DEBUG = 0;
 
-my $token;
-my $api = WWW::Pinboard->new(token => $token);
+start();
 
-check_output_folder($output_folder);
+sub start {
+    my $token = "";
+    my $api = WWW::Pinboard->new(token => $token);
 
-my $last_fetch = get_last_fetch();
-print "Last recorded fetch was $last_fetch\n";
+    # Check the output folder exists
+    check_output_folder($output_folder);
 
-my $bookmarks = get_bookmarks_since($last_fetch);
-print Dumper $bookmarks if $DEBUG;
+    # Retry previously failed URLs
+    retry_failed_urls($api);
+    exit;
 
-for my $bookmark (@$bookmarks) {
-    archive_bookmark($bookmark);
+    # Lookup last time bookmarks were fetched
+    my $last_fetch = get_last_fetch();
+    print "Last recorded fetch was $last_fetch\n";
+
+    # Get all bookmarks created since last fetch
+    my $bookmarks = get_bookmarks_since($api, $last_fetch);
+    print Dumper $bookmarks if $DEBUG;
+
+    # Archive bookmarks!
+    archive_bookmark($_) for @$bookmarks;
 }
 
 # Check output folder exists, create it if not
@@ -54,6 +69,7 @@ sub set_last_fetch {
 
 # Get bookmarks since $date from earliest to latest
 sub get_bookmarks_since {
+    my $api = shift;
     my $from_date = shift;
 
     my $bookmarks = $api->all(fromdt => $from_date);
