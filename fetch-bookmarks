@@ -84,7 +84,7 @@ sub archive_bookmark {
     my $bookmark = shift;
 
     print "Fetching \"", shortname($bookmark), "\"\n";
-    std_log("Archiver", Dumper $bookmark) if $DEBUG;
+    std_log("Archiver", Dumper $bookmark);
 
     archive_as_image($bookmark);
     archive_as_pdf($bookmark);
@@ -101,20 +101,18 @@ sub archive_as_image {
 
     print "  Archiving as image...\n";
 
-    my $url = bash_encode($bookmark->{href});
+    my $url = $bookmark->{href};
     my $filename = catfile($output_folder, $bookmark->{hash} . ".png");
 
     my $wk_cmd = "wkhtmltoimage";
     my $wk_flags = "--quiet --quality 89"; # quality >89 gives huge filesizes
     my $wk_out = ">/dev/null 2>&1";
 
-    my $wk_full = join(' ', $wk_cmd, $wk_flags, $url, $filename, $wk_out);
+    my $wk_full = join(' ', $wk_cmd, $wk_flags, bash_encode($url), $filename, $wk_out);
     std_log("wkImage", "Using: '$wk_full'");
 
     # Run and check response code
     my $rc;
-
-    # The script will continue, but you'll have issues with zombie wkhtmls
     # This will catch wkhtmls that take longer than 2 minutes, but they'll stick around as zombies
     eval {
         local $SIG{ALRM} = sub { die "alarm\n" };
@@ -129,12 +127,25 @@ sub archive_as_image {
         die unless $@ eq "alarm\n";
         print "    [Fetch timed out]\n";
         error_log("wkImage", "*** Fetch timed out for $filename");
+
+        # Retry again later
+        retry_log("$url");
     }
     else {
         # wkhtml didn't time out, check return code
         std_log("wkImage", "Response code was $rc");
-        error_log("wkImage", "*** Respose code was $rc for $filename ($url)") if $rc;
-        print "    [Operation may have failed ($rc)]\n" if $rc;
+
+        # Retry later if a non-zero exit code
+        retry_log("$url") if $rc;
+
+        if ($rc == 256) {
+            error_log("wkImage", "*** Possible error $rc for $filename ($url)") if $rc;
+            print "    [Possible error ($rc)]\n" if $rc;
+        }
+        else {
+            error_log("wkImage", "*** Respose code was $rc for $filename ($url)") if $rc;
+            print "    [Operation may have failed ($rc)]\n" if $rc;
+        }
     }
 }
 
@@ -196,12 +207,28 @@ sub error_log {
     write_log($type, $section, $message);
 }
 
+sub retry_log {
+    my $message = shift;
+
+    my $type    = "retry";
+    my $section = "";
+
+    write_log($type, $section, $message);
+}
+
+# Do logging
+#   Standard log: system() commands being run, bookmark dump
+#   Error log: any problems - fetch timeouts, bad return codes
+#   Retry log: any urls that we should retry. How should you read/edit/write this though?
 sub write_log {
     my $type = shift;
     my $section = shift;
     my $message = shift;
     chomp $message;
 
+    my $pretty = 1;
+
+    # Work out where to send the log message
     my $log_fh;
     if ($type eq "log") {
         open($log_fh, '>>', $log_filename);
@@ -209,9 +236,19 @@ sub write_log {
     elsif ($type eq "error") {
         open($log_fh, '>>', $error_filename);
     }
+    elsif ($type eq "retry") {
+        open($log_fh, '>>', $retry_filename);
+        $pretty = 0;
+    }
     else {
-        warn "Unknown log type";
+        die "Unknown log type";
     }
 
-    print $log_fh "[$section]: $message\n";
+    # Decide if we want a pretty formatted output
+    if ($pretty) {
+        print $log_fh "[$section]: $message\n";
+    }
+    else {
+        print $log_fh "$message\n";
+    }
 }
