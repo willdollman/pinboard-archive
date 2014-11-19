@@ -130,22 +130,23 @@ sub archive_as_image {
 
         # Retry again later
         retry_log("$url");
+
+        return;
+    }
+
+    # wkhtml didn't time out, check return code
+    std_log("wkImage", "Response code was $rc");
+
+    # Retry later if a non-zero exit code
+    retry_log("$url") if $rc;
+
+    if ($rc == 256) {
+        error_log("wkImage", "*** Possible error $rc for $filename ($url)") if $rc;
+        print "    [Possible error ($rc)]\n" if $rc;
     }
     else {
-        # wkhtml didn't time out, check return code
-        std_log("wkImage", "Response code was $rc");
-
-        # Retry later if a non-zero exit code
-        retry_log("$url") if $rc;
-
-        if ($rc == 256) {
-            error_log("wkImage", "*** Possible error $rc for $filename ($url)") if $rc;
-            print "    [Possible error ($rc)]\n" if $rc;
-        }
-        else {
-            error_log("wkImage", "*** Respose code was $rc for $filename ($url)") if $rc;
-            print "    [Operation may have failed ($rc)]\n" if $rc;
-        }
+        error_log("wkImage", "*** Respose code was $rc for $filename ($url)") if $rc;
+        print "    [Operation may have failed ($rc)]\n" if $rc;
     }
 }
 
