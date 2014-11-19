@@ -87,7 +87,7 @@ sub archive_bookmark {
     std_log("Archiver", Dumper $bookmark);
 
     archive_as_image($bookmark);
-    archive_as_pdf($bookmark);
+    #archive_as_pdf($bookmark);
 
     # No need to fetch it again
     set_last_fetch($bookmark->{time});
