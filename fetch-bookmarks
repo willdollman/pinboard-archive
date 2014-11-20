@@ -33,7 +33,6 @@ sub start {
 
     # Retry previously failed URLs
     retry_failed_urls($api);
-    exit;
 
     # Lookup last time bookmarks were fetched
     my $last_fetch = get_last_fetch();
@@ -86,7 +85,8 @@ sub archive_bookmark {
     my $bookmark = shift;
 
     print "Fetching \"", shortname($bookmark), "\"\n";
-    std_log("Archiver", Dumper $bookmark);
+    std_log("Archiver", "Archiving '" . shortname($bookmark) . "' ($bookmark->{href})");
+    std_log("Archiver", Dumper $bookmark) if $DEBUG;
 
     my $rc = archive_as_image($bookmark);
 
@@ -95,6 +95,8 @@ sub archive_bookmark {
 
     # No need to fetch it again
     set_last_fetch($bookmark->{time});
+
+    print "\n";
 
     # If we're running interactively, make it easier to cancel with Ctrl+C
     sleep(1) if is_interactive();
@@ -117,7 +119,7 @@ sub archive_as_image {
     my $wk_out = ">/dev/null 2>&1";
 
     my $wk_full = join(' ', $wk_cmd, $wk_flags, bash_encode($url), $filename, $wk_out);
-    std_log("wkImage", "Using: '$wk_full'");
+    std_log("wkImage", "Using: '$wk_full'") if $DEBUG;
 
     # Run and check response code
     my $rc;
@@ -133,6 +135,7 @@ sub archive_as_image {
     if ($@) {
         # wkhtml timed out, log it
         die unless $@ eq "alarm\n";
+
         print "    [Fetch timed out]\n";
         error_log("wkImage", "*** Fetch timed out for $filename");
 
