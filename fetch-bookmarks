@@ -267,11 +267,9 @@ sub log_fetched_url {
     (tied %RETRY)->autosync(1); # writeback on every modify
 
     if (! $rc) {
-        print "Noting success on $url ($rc)\n";
         delete $RETRY{$url};
     }
     else {
-        print "Noting failure on $url ($rc)\n";
         $RETRY{$url}++;
     }
     untie %RETRY;
@@ -280,7 +278,6 @@ sub log_fetched_url {
 # Do logging
 #   Standard log: system() commands being run, bookmark dump
 #   Error log: any problems - fetch timeouts, bad return codes
-#   Retry log: any urls that we should retry. How should you read/edit/write this though?
 sub write_log {
     my $type = shift;
     my $section = shift;
