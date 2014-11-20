@@ -215,8 +215,46 @@ sub error_log {
     write_log($type, $section, $message);
 }
 
-sub retry_log {
-    my $message = shift;
+# Retry all the URLs in $retry_filename
+sub retry_failed_urls {
+    my $api = shift;
+
+    print "Retrying failed URLs:\n\n";
+    std_log("Retry", "Retrying failed URLs");
+
+    # Open retry database, take a copy, then close the file
+    # Avoids clashing with other code that accesses the file
+    tie my %RETRY, 'Tie::Persistent', $retry_filename, 'rw';
+    my %retry = %RETRY;
+    untie %RETRY;
+
+    for my $url (keys %retry) {
+        if ($retry{$url} < 3) {
+            print "Retrying $url (attempt $retry{$url})!\n";
+            std_log("Retry", "Retrying (attempt $retry{$url}) $url");
+
+            my $bookmark = get_bookmark_from_url($api, $url);
+            archive_bookmark($bookmark);
+        }
+        else {
+            print "Not retrying $url after $retry{$url} failures\n";
+            std_log("Retry", "Not retrying (attempt $retry{$url}) $url");
+        }
+    }
+}
+
+# Get a bookmark object from a URL
+# Returns the first bookmark in search results
+# What happens if there's nothing to return?
+sub get_bookmark_from_url {
+    my $api = shift;
+    my $url = shift;
+
+    my $response = $api->get(url => $url);
+    my $bookmark = $response->{posts}->[0];
+
+    return $bookmark;
+}
 
 # Log that we've fetched a URL
 # Update retry.db depending on success/failure
