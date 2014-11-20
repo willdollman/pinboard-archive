@@ -7,6 +7,7 @@ use strict;
 
 use Data::Dumper;
 use File::Spec::Functions qw(catfile);
+use IO::Interactive qw(is_interactive);
 use WWW::Pinboard;
 
 # Define some output files
@@ -92,7 +93,8 @@ sub archive_bookmark {
     # No need to fetch it again
     set_last_fetch($bookmark->{time});
 
-    sleep(1);
+    # If we're running interactively, make it easier to cancel with Ctrl+C
+    sleep(1) if is_interactive();
 }
 
 # Archive bookmark as an image using wkhtmltoimage
