@@ -288,8 +288,6 @@ sub write_log {
     my $message = shift;
     chomp $message;
 
-    my $pretty = 1;
-
     # Work out where to send the log message
     my $log_fh;
     if ($type eq "log") {
@@ -298,19 +296,9 @@ sub write_log {
     elsif ($type eq "error") {
         open($log_fh, '>>', $error_filename);
     }
-    elsif ($type eq "retry") {
-        open($log_fh, '>>', $retry_filename);
-        $pretty = 0;
-    }
     else {
         die "Unknown log type";
     }
 
-    # Decide if we want a pretty formatted output
-    if ($pretty) {
-        print $log_fh "[$section]: $message\n";
-    }
-    else {
-        print $log_fh "$message\n";
-    }
+    print $log_fh "[$section]: $message\n";
 }
