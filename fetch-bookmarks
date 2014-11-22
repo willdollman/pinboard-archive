@@ -7,6 +7,7 @@ use strict;
 
 use Data::Dumper;
 use File::Spec::Functions qw(catfile);
+use Getopt::Long;
 use IO::Interactive qw(is_interactive);
 use Tie::Persistent;
 use WWW::Pinboard;
@@ -15,12 +16,18 @@ use WWW::Pinboard;
 my $log_filename    = "log.txt";
 my $error_filename  = "errorlog.txt";
 my $retry_filename  = "retry.db";
-my $failed_filename = "failed.txt";
 
 my $last_fetch_filename = "last-fetch";
 my $output_folder = 'output';
 
-my $DEBUG = 0;
+
+my ($cleanup, $DEBUG);
+GetOptions (
+    "cleanup" => \$cleanup, # delete all logs and output files
+    "debug"   => \$DEBUG,   # print extra output to logs files
+) or die("Error in command line arguments\n");
+
+cleanup() if $cleanup;
 
 start();
 
@@ -44,6 +51,16 @@ sub start {
 
     # Archive bookmarks!
     archive_bookmark($_) for @$bookmarks;
+}
+
+sub cleanup {
+    print "Cleaning up - deleting error and retry logs...\n";
+
+    unlink $log_filename   or warn "Unable to remove $log_filename\n";
+    unlink $error_filename or warn "Unable to remove $error_filename\n";
+    unlink $retry_filename or warn "Unable to remove $retry_filename\n";
+
+    exit;
 }
 
 # Check output folder exists, create it if not
@@ -112,7 +129,7 @@ sub archive_bookmark {
     print "\n";
 
     # If we're running interactively, make it easier to cancel with Ctrl+C
-    sleep(1) if is_interactive();
+    sleep(1) if is_interactive;
 
     return $rc;
 }
