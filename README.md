@@ -27,4 +27,4 @@ You can run it as a one-off, but ideally run it daily on a cron to archive any n
 
 ## Todo
 
-See the [Issues](https://github.com/willdollman/perl-total-connect-comfort/issues?q=is%3Aissue+is%3Aopen) page.
+See the [Issues](https://github.com/willdollman/pinboard-archive/issues) page.
