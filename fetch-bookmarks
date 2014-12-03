@@ -184,7 +184,7 @@ sub retry_failed_urls {
             archive_bookmark($bookmark);
         }
         else {
-            print "Not retrying $url after $retry{$url} failures\n" if $v;
+            #print "Not retrying $url after $retry{$url} failures\n" if $v;
             std_log("Retry", "Not retrying (attempt $retry{$url}) $url");
         }
     }
