@@ -4,6 +4,7 @@ use warnings;
 use strict;
 
 use Data::Dumper;
+use Date::Parse;
 use File::Spec::Functions qw(catfile);
 use Getopt::Long;
 use IO::Interactive qw(is_interactive);
@@ -90,11 +91,24 @@ sub get_last_fetch {
 }
 
 # Store the timestamp of the last bookmark we fetched
+# Only records if $last_updated is newer than the latest recorded fetch
 sub set_last_fetch {
-    my $last_updated = shift;
+    my $date_pending = shift;
+    my $dt_pending = str2time($date_pending);
 
+    # Get current last_updated
+    my $date_stored = get_last_fetch();
+    my $dt_stored = str2time($date_stored);
+
+    if ($dt_pending < $dt_stored) {
+        # We're trying to set last_updated to a date before its current value - we don't want to do that!
+        error_log("Archiver", "Bookmark date is older than last_fetch, not updating ($dt_pending vs $dt_stored)");
+        return;
+    }
+
+    # Store latest bookmark date
     open(my $last_fetch_fh, '>', $file{last_fetch});
-    print $last_fetch_fh $last_updated;
+    print $last_fetch_fh $date_pending;
 }
 
 # Get bookmarks since $date from earliest to latest
