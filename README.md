@@ -15,13 +15,14 @@ If you're using a headless Linux VM you might not have any nice fonts installed.
 
 ## Usage
 
-Use with:
+Configure your Pinboard API token in `config.yaml` then use with:
 
-    perl fetch-bookmarks
+    perl fetch-bookmarks --verbose
 
 The script keeps track of where it got to, so can be stopped and restarted any time. It will also retry failed fetches on the next run.
 
-You can run it as a one-off, but ideally run it daily on a cron to archive any new bookmarks you add:
+You can run it as a one-off, but ideally run it daily on a cron to archive any new bookmarks you add.
+Edit `config.yaml` to set your log and output folders, and then add something like this to your crontab:
 
 	0 1 * * * perl /usr/bin/fetch-bookmarks
 
