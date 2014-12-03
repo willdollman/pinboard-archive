@@ -21,10 +21,11 @@ my $last_fetch_filename = "last-fetch";
 my $output_folder = 'output';
 
 
-my ($cleanup, $DEBUG);
+my ($cleanup, $DEBUG, $v);
 GetOptions (
     "cleanup" => \$cleanup, # delete all logs and output files
     "debug"   => \$DEBUG,   # print extra output to logs files
+    "verbose" => \$v,       # be verbose
 ) or die("Error in command line arguments\n");
 
 cleanup() if $cleanup;
@@ -43,7 +44,7 @@ sub start {
 
     # Lookup last time bookmarks were fetched
     my $last_fetch = get_last_fetch();
-    print "Last recorded fetch was $last_fetch\n";
+    print "Last recorded fetch was $last_fetch\n" if $v;
 
     # Get all bookmarks created since last fetch
     my $bookmarks = get_bookmarks_since($api, $last_fetch);
@@ -114,7 +115,7 @@ sub get_bookmark_from_url {
 sub archive_bookmark {
     my $bookmark = shift;
 
-    print "Fetching \"", shortname($bookmark), "\"\n";
+    print "Fetching \"", shortname($bookmark), "\"\n" if $v;
     std_log("Archiver", "Archiving '" . shortname($bookmark) . "' ($bookmark->{href})");
     std_log("Archiver", Dumper $bookmark) if $DEBUG;
 
@@ -126,7 +127,7 @@ sub archive_bookmark {
     # No need to fetch it again
     set_last_fetch($bookmark->{time});
 
-    print "\n";
+    print "\n" if $v;
 
     # If we're running interactively, make it easier to cancel with Ctrl+C
     sleep(1) if is_interactive;
@@ -138,7 +139,7 @@ sub archive_bookmark {
 sub retry_failed_urls {
     my $api = shift;
 
-    print "Retrying failed URLs:\n\n";
+    print "Retrying failed URLs:\n\n" if $v;
     std_log("Retry", "Retrying failed URLs");
 
     # Open retry database, take a copy, then close the file
@@ -149,14 +150,14 @@ sub retry_failed_urls {
 
     for my $url (keys %retry) {
         if ($retry{$url} < 3) {
-            print "Retrying $url (attempt $retry{$url})!\n";
+            print "Retrying $url (attempt $retry{$url})!\n" if $v;
             std_log("Retry", "Retrying (attempt $retry{$url}) $url");
 
             my $bookmark = get_bookmark_from_url($api, $url);
             archive_bookmark($bookmark);
         }
         else {
-            print "Not retrying $url after $retry{$url} failures\n";
+            print "Not retrying $url after $retry{$url} failures\n" if $v;
             std_log("Retry", "Not retrying (attempt $retry{$url}) $url");
         }
     }
@@ -167,7 +168,7 @@ sub retry_failed_urls {
 sub archive_as_image {
     my $bookmark = shift;
 
-    print "  Archiving as image...\n";
+    print "  Archiving as image...\n" if $v;
 
     my $url = $bookmark->{href};
     my $filename = catfile($output_folder, $bookmark->{hash} . ".png");
@@ -194,7 +195,7 @@ sub archive_as_image {
         # wkhtml timed out, log it
         die unless $@ eq "alarm\n";
 
-        print "    [Fetch timed out]\n";
+        print "    [Fetch timed out]\n" if $v;
         error_log("wkImage", "*** Fetch timed out for $filename");
 
         return 1; # return non-zero exit code due to failure
@@ -205,11 +206,11 @@ sub archive_as_image {
 
     if ($rc == 256) {
         error_log("wkImage", "*** Possible error $rc for $filename ($url)") if $rc;
-        print "    [Possible error ($rc)]\n" if $rc;
+        print "    [Possible error ($rc)]\n" if $v;
     }
     elsif ($rc != 0) {
         error_log("wkImage", "*** Respose code was $rc for $filename ($url)") if $rc;
-        print "    [Operation may have failed ($rc)]\n" if $rc;
+        print "    [Operation may have failed ($rc)]\n" if $v;
     }
 
     return $rc; # will return non-zero on failure
@@ -219,7 +220,7 @@ sub archive_as_image {
 sub archive_as_pdf {
     my $bookmark = shift;
 
-    print "  Archiving as pdf...\n";
+    print "  Archiving as pdf...\n" if $v;
 
     my $url = bash_encode($bookmark->{href});
     my $filename = catfile($output_folder, $bookmark->{hash} . ".pdf");
@@ -235,7 +236,7 @@ sub archive_as_pdf {
     my $rc = system($wk_full);
     std_log("wkImage", "Response code was $rc");
     error_log("wkPDF", "*** Respose code was $rc for $filename ($url)") if $rc;
-    print "    [Operation may have failed ($rc)]\n" if $rc;
+    print "    [Operation may have failed ($rc)]\n" if $v;
 }
 
 # Log that we've fetched a URL
