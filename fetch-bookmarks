@@ -1,7 +1,5 @@
 #!/usr/bin/perl
 
-# Requires the urw-fonts package (or perhaps better) to render fonts nicely
-
 use warnings;
 use strict;
 
@@ -22,13 +20,15 @@ die "Config must contain token, output_folder and log_folder fields"
      && defined $config->{log_folder}
     );
 
-# Define some output files
-my $log_filename    = "log.txt";
-my $error_filename  = "errorlog.txt";
-my $retry_filename  = "retry.db";
-
-my $last_fetch_filename = "last-fetch";
-
+# Define input/output files
+my %file = (
+    'log'        => 'pinboard.log',
+    'error'      => 'pinboard.errors',
+    'retry'      => 'retry.db',
+    'last_fetch' => 'last-fetch',
+);
+# All logs are stored in $config->{log_folder}
+%file = map { $_ => catfile($config->{log_folder}, $file{$_}) } keys %file;
 
 my ($cleanup, $DEBUG, $v);
 GetOptions (
@@ -45,8 +45,9 @@ sub start {
     my $token = $config->{token};
     my $api = WWW::Pinboard->new(token => $token);
 
-    # Check the output folder exists
-    check_output_folder($config->{output_folder});
+    # Check the output and log folders exists
+    check_folder($config->{output_folder});
+    check_folder($config->{log_folder});
 
     # Retry previously failed URLs
     retry_failed_urls($api);
@@ -66,23 +67,24 @@ sub start {
 sub cleanup {
     print "Cleaning up - deleting error and retry logs...\n";
 
-    unlink $log_filename   or warn "Unable to remove $log_filename\n";
-    unlink $error_filename or warn "Unable to remove $error_filename\n";
-    unlink $retry_filename or warn "Unable to remove $retry_filename\n";
+    unlink $file{log}   or warn "Unable to remove $file{log}\n";
+    unlink $file{error} or warn "Unable to remove $file{error}\n";
+    unlink $file{retry} or warn "Unable to remove $file{retry}\n";
 
     exit;
 }
 
 # Check output folder exists, create it if not
-sub check_output_folder {
+sub check_folder {
     my $output_folder = shift;
 
-    mkdir $output_folder unless (-d $output_folder);
+    ( mkdir $output_folder or die "Could not create $output_folder\n" )
+        unless (-d $output_folder);
 }
 
 # Lookup the timestamp of the last bookmark we fetched
 sub get_last_fetch {
-    open(my $last_fetch_fh, '<', $last_fetch_filename);
+    open(my $last_fetch_fh, '<', $file{last_fetch});
     my $last_fetch = <$last_fetch_fh>;
     return $last_fetch || 0;
 }
@@ -91,7 +93,7 @@ sub get_last_fetch {
 sub set_last_fetch {
     my $last_updated = shift;
 
-    open(my $last_fetch_fh, '>', $last_fetch_filename);
+    open(my $last_fetch_fh, '>', $file{last_fetch});
     print $last_fetch_fh $last_updated;
 }
 
@@ -153,7 +155,7 @@ sub retry_failed_urls {
 
     # Open retry database, take a copy, then close the file
     # Avoids clashing with other code that accesses the file
-    tie my %RETRY, 'Tie::Persistent', $retry_filename, 'rw';
+    tie my %RETRY, 'Tie::Persistent', $file{retry}, 'rw';
     my %retry = %RETRY;
     untie %RETRY;
 
@@ -255,7 +257,7 @@ sub log_fetched_url {
     my $rc  = shift;
 
     my %RETRY;
-    tie %RETRY, 'Tie::Persistent', $retry_filename, 'rw';
+    tie %RETRY, 'Tie::Persistent', $file{retry}, 'rw';
     (tied %RETRY)->autosync(1); # writeback on every modify
 
     if (! $rc) {
@@ -318,10 +320,10 @@ sub write_log {
     # Work out where to send the log message
     my $log_fh;
     if ($type eq "log") {
-        open($log_fh, '>>', $log_filename);
+        open($log_fh, '>>', $file{log});
     }
     elsif ($type eq "error") {
-        open($log_fh, '>>', $error_filename);
+        open($log_fh, '>>', $file{error});
     }
     else {
         die "Unknown log type";
