@@ -11,6 +11,16 @@ use Getopt::Long;
 use IO::Interactive qw(is_interactive);
 use Tie::Persistent;
 use WWW::Pinboard;
+use YAML qw(LoadFile);
+
+# Load config
+my $config = LoadFile('config.yaml');
+die "Config must contain token, output_folder and log_folder fields"
+    unless (
+        defined $config->{token}
+     && defined $config->{output_folder}
+     && defined $config->{log_folder}
+    );
 
 # Define some output files
 my $log_filename    = "log.txt";
@@ -18,7 +28,6 @@ my $error_filename  = "errorlog.txt";
 my $retry_filename  = "retry.db";
 
 my $last_fetch_filename = "last-fetch";
-my $output_folder = 'output';
 
 
 my ($cleanup, $DEBUG, $v);
@@ -33,11 +42,11 @@ cleanup() if $cleanup;
 start();
 
 sub start {
-    my $token = "";
+    my $token = $config->{token};
     my $api = WWW::Pinboard->new(token => $token);
 
     # Check the output folder exists
-    check_output_folder($output_folder);
+    check_output_folder($config->{output_folder});
 
     # Retry previously failed URLs
     retry_failed_urls($api);
@@ -171,7 +180,7 @@ sub archive_as_image {
     print "  Archiving as image...\n" if $v;
 
     my $url = $bookmark->{href};
-    my $filename = catfile($output_folder, $bookmark->{hash} . ".png");
+    my $filename = catfile($config->{output_folder}, $bookmark->{hash} . ".png");
 
     my $wk_cmd = "wkhtmltoimage";
     my $wk_flags = "--quiet --quality 89"; # quality >89 gives huge filesizes
@@ -223,7 +232,7 @@ sub archive_as_pdf {
     print "  Archiving as pdf...\n" if $v;
 
     my $url = bash_encode($bookmark->{href});
-    my $filename = catfile($output_folder, $bookmark->{hash} . ".pdf");
+    my $filename = catfile($config->{output_folder}, $bookmark->{hash} . ".pdf");
 
     my $wk_cmd = "wkhtmltopdf";
     my $wk_flags = "--quiet"; # --quiet

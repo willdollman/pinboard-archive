@@ -1,0 +1,3 @@
+token: Username:Secret
+log_folder: /var/log/pinboard-archiver
+output_folder: /home/will/code/pinboard/output2
