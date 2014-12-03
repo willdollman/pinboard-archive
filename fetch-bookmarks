@@ -63,6 +63,8 @@ sub start {
 
     # Archive bookmarks!
     archive_bookmark($_) for @$bookmarks;
+
+    std_log("Archiver", "Archived " . scalar @$bookmarks . " bookmarks this session");
 }
 
 sub cleanup {
