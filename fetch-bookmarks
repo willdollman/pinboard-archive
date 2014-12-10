@@ -185,7 +185,7 @@ sub retry_failed_urls {
         }
         else {
             #print "Not retrying $url after $retry{$url} failures\n" if $v;
-            std_log("Retry", "Not retrying (attempt $retry{$url}) $url");
+            #std_log("Retry", "Not retrying (attempt $retry{$url}) $url");
         }
     }
 }
