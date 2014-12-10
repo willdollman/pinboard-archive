@@ -89,7 +89,7 @@ sub check_folder {
 sub get_last_fetch {
     open(my $last_fetch_fh, '<', $file{last_fetch});
     my $last_fetch = <$last_fetch_fh>;
-    return $last_fetch || 0;
+    return $last_fetch || "1970-01-01T00:00:00Z"; # otherwise we return 0 which is converted to "now"
 }
 
 # Store the timestamp of the last bookmark we fetched
